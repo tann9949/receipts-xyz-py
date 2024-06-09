@@ -32,17 +32,20 @@ class ReceiptsXYZGraphQLAPI:
                     }},
                     id: {{
                         equals: "{uid}"
+                    }},
+                    attester: {{
+                        equals: "0x77a3b79a2De700AfcfC761fED837a67D7d8fAe1B"
                     }}
                 }}
             ) {{
                 id
+                txid
                 data
                 decodedDataJson
                 revoked
                 ipfsHash
                 schema {{
                     id
-                    txid
                 }}
             }}
         }}
@@ -85,7 +88,10 @@ class ReceiptsXYZGraphQLAPI:
                 orderBy: {{time: desc}},
                 where: {{
                     recipient: {{
-                        equals: "{address}"
+                        equals: "{address}",
+                        not: {{
+                            equals: "0x0000000000000000000000000000000000000000
+                        }}
                     }},
                     schema: {{
                         is: {{
@@ -93,19 +99,22 @@ class ReceiptsXYZGraphQLAPI:
                                 equals: "0x48d9973eb6863978c104f85dc6864e827fc0f72c4083dd853171e0bf034f8774"
                             }}
                         }}
+                    }},
+                    attester: {{
+                        equals: "0x77a3b79a2De700AfcfC761fED837a67D7d8fAe1B"
                     }}
                 }},
                 take: {batch_size},
                 skip: {skip}
             ) {{
                 id
+                txid
                 data
                 decodedDataJson
                 revoked
                 ipfsHash
                 schema {{
                     id
-                    txid
                 }}
             }}
         }}
@@ -136,6 +145,9 @@ class ReceiptsXYZGraphQLAPI:
                                 equals: "0x48d9973eb6863978c104f85dc6864e827fc0f72c4083dd853171e0bf034f8774"
                             }}
                         }}
+                    }},
+                    attester: {{
+                        equals: "0x77a3b79a2De700AfcfC761fED837a67D7d8fAe1B"
                     }}
                 }},
                 take: {batch_size},
@@ -148,7 +160,6 @@ class ReceiptsXYZGraphQLAPI:
                 ipfsHash
                 schema {{
                     id
-                    txid
                 }}
             }}
         }}
@@ -176,7 +187,10 @@ class ReceiptsXYZGraphQLAPI:
                 orderBy: {{time: desc}},
                 where: {{
                     recipient: {{
-                        equals: "{address}"
+                        equals: "{address}",
+                        not: {{
+                            equals: "0x0000000000000000000000000000000000000000
+                        }}
                     }},
                     time: {{
                         lte: {end_timestamp},
@@ -188,6 +202,9 @@ class ReceiptsXYZGraphQLAPI:
                                 equals: "0x48d9973eb6863978c104f85dc6864e827fc0f72c4083dd853171e0bf034f8774"
                             }}
                         }}
+                    }},
+                    attester: {{
+                        equals: "0x77a3b79a2De700AfcfC761fED837a67D7d8fAe1B"
                     }}
                 }},
                 take: {batch_size},
@@ -216,18 +233,27 @@ class ReceiptsXYZGraphQLAPI:
         )
         return results
     
-    def query_receipts_users(self) -> List[str]:
+    def query_receipts_users(self, from_timestamp: Optional[int] = None) -> List[str]:
         base_query = """
         query Users {{
             attestations(
                 orderBy: {{time: desc}},
                 where: {{
+                    {condition}
                     schema: {{
                         is: {{
                             id: {{
                                 equals: "0x0f575d6100ca5a0d82b037f97673b97ebb8bb55848aa8b861ee4a843e247c1d2"
                             }}
                         }}
+                    }},
+                    recipient: {{
+                        not: {{
+                            equals: "0x0000000000000000000000000000000000000000"
+                        }}
+                    }},
+                    attester: {{
+                        equals: "0x77a3b79a2De700AfcfC761fED837a67D7d8fAe1B"
                     }}
                 }},
                 take: {batch_size},
@@ -239,8 +265,14 @@ class ReceiptsXYZGraphQLAPI:
         }}
         """
         
+        if from_timestamp is None:
+            condition = ""
+        else:
+            logging.info(f"Fetching attestations from timestamp: {from_timestamp}")
+            condition = f"time: {{gte: {from_timestamp}}}"
+        
         data_path = ['data', 'attestations']
-        results = self.fetch_all_data(base_query, data_path)
+        results = self.fetch_all_data(base_query, data_path, condition=condition)
         return results
     
     
