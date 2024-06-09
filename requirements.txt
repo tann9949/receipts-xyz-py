@@ -1,3 +1,10 @@
 requests
 pydantic
 web3
+
+# notebooks
+jupyter
+jupyterlab
+ipywidgets
+matplotlib
+pandas
