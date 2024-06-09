@@ -90,7 +90,7 @@ class ReceiptsXYZGraphQLAPI:
                     recipient: {{
                         equals: "{address}",
                         not: {{
-                            equals: "0x0000000000000000000000000000000000000000
+                            equals: "0x0000000000000000000000000000000000000000"
                         }}
                     }},
                     schema: {{
@@ -189,7 +189,7 @@ class ReceiptsXYZGraphQLAPI:
                     recipient: {{
                         equals: "{address}",
                         not: {{
-                            equals: "0x0000000000000000000000000000000000000000
+                            equals: "0x0000000000000000000000000000000000000000"
                         }}
                     }},
                     time: {{
