@@ -1,9 +1,9 @@
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Optional, Dict
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
 
 from .api import ReceiptsXYZGraphQLAPI
 from .exception import ParsingFailException
@@ -134,14 +134,24 @@ class SingleWorkoutReceipt(BaseModel):
     
     metadata: AttentationMetadata
     
-    @property
-    def get_hash(self) -> str:
-        """Compute hash for workout deduplication
-        take a hash of (title, sport_type, receipt_type, moving_time, distance, average_speed, elevation_gain, timezone, local_time, utc_time, receipt_map, strava_single_activity, data_source)
-        """
+    def to_json(self) -> dict:
+        return {
+            "title": self.title,
+            "sport_type": self.sport_type,
+            "receipt_type": self.receipt_type,
+            "moving_time": self.moving_time,
+            "distance": self.distance,
+            "average_speed": self.average_speed,
+            "elevation_gain": self.elevation_gain,
+            "timezone": self.timezone,
+            "local_time": self.local_time,
+            "utc_time": self.utc_time,
+            "receipt_map": self.receipt_map,
+            "strava_single_activity": self.strava_single_activity,
+            "data_source": self.data_source,
+            "user_address": self.metadata.from_address
+        }
         
-        
-    
     @staticmethod
     def get_schema_id() -> str:
         return "0x48d9973eb6863978c104f85dc6864e827fc0f72c4083dd853171e0bf034f8774"
