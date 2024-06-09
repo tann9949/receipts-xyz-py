@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict
 
 from pydantic import BaseModel
@@ -40,15 +40,10 @@ class Attestation(BaseModel):
     decodedDataJson: str
     revoked: bool
     ipfsHash: str
-    txid: str
     
     @property
     def eas_url(self) -> str:
         return f"https://base.easscan.org/attestation/{self.id}"
-    
-    @property
-    def mint_url(self) -> str:
-        return f"https://basescan.org/tx/{self.txid}"
     
     @property
     def ipfs_url(self) -> str:
@@ -64,14 +59,9 @@ class Attestation(BaseModel):
                 raise ParsingFailException(f"Failed to parse attestation data: {attestation_data['data']}")
             attestation_data["data"] = json.loads(attestation_data["data"])
         
-        # Extract schema fields
-        schema = attestation_data.get("schema", {})
-        txid = schema.get("txid")
-        
         # Create an instance of Attestation
         attestation = cls(
             **attestation_data,
-            txid=txid,
         )
         
         return attestation
@@ -98,7 +88,6 @@ class Attestation(BaseModel):
             from_address=self.data["sig"]["message"]["recipient"],
             to_address=self.data["signer"],
             ipfs_hash=self.ipfsHash,
-            txid=self.txid
         )
     
     
@@ -111,7 +100,6 @@ class AttentationMetadata(BaseModel):
     to_address: str
     
     ipfs_hash: str
-    txid: str
     
     
 class SingleWorkoutReceipt(BaseModel):
