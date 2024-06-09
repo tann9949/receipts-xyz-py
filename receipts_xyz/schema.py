@@ -1,10 +1,12 @@
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 from .api import ReceiptsXYZGraphQLAPI
+from .exception import ParsingFailException
 from .utils import parse_decoded_data_json
 
 
@@ -18,17 +20,35 @@ class Attestation(BaseModel):
     id: str
     data: Dict  # Change the type to Dict to reflect the parsed data
     decodedDataJson: str
+    revoked: bool
+    ipfsHash: str
+    txid: str
+    
+    @property
+    def eas_url(self) -> str:
+        return f"https://base.easscan.org/attestation/{self.id}"
+    
+    @property
+    def mint_url(self) -> str:
+        return f"https://basescan.org/tx/{self.txid}"
+    
+    @property
+    def ipfs_url(self) -> str:
+        return f"ipfs://{self.ipfsHash}"
 
     @classmethod
     def from_dict(cls, attestation_data: dict) -> "Attestation":
         # Extract the attestation data from the response
         
         # Parse the "data" field from JSON string to dictionary
-        attestation_data['data'] = json.loads(attestation_data['data'])
+        if isinstance(attestation_data["data"], str):
+            if attestation_data["data"].startswith("0x"):
+                raise ParsingFailException(f"Failed to parse attestation data: {attestation_data['data']}")
+            attestation_data["data"] = json.loads(attestation_data["data"])
         
         # Extract schema fields
-        schema = attestation_data.pop('schema', {})
-        txid = schema.get('txid')
+        schema = attestation_data.get("schema", {})
+        txid = schema.get("txid")
         
         # Create an instance of Attestation
         attestation = cls(
@@ -42,7 +62,7 @@ class Attestation(BaseModel):
     def from_uid(cls, uid: str) -> "Attestation":
         api = ReceiptsXYZGraphQLAPI()
         
-        attestations = api.query_attestation(uid)['data']['attestations']
+        attestations = api.query_attestation(uid)["data"]["attestations"]
         if len(attestations) == 0:
             raise ValueError(f"UID {uid} not found in GraphQL API")
         elif len(attestations) > 1:
@@ -50,6 +70,30 @@ class Attestation(BaseModel):
         
         attestation = attestations[0]
         return cls.from_dict(attestation)
+    
+    def to_metadata(self) -> "AttentationMetadata":
+        return AttentationMetadata(
+            uid=self.id,
+            created_at=datetime.fromtimestamp(self.data["sig"]["message"]["time"]),
+            expiration=self.data["sig"]["message"]["expirationTime"],
+            revoked=self.revoked,
+            from_address=self.data["sig"]["message"]["recipient"],
+            to_address=self.data["signer"],
+            ipfs_hash=self.ipfsHash,
+            txid=self.txid
+        )
+    
+    
+class AttentationMetadata(BaseModel):
+    uid: str
+    created_at: datetime
+    expiration: int = 0
+    revoked: bool = False
+    from_address: str
+    to_address: str
+    
+    ipfs_hash: str
+    txid: str
     
     
 class SingleWorkoutReceipt(BaseModel):
@@ -70,6 +114,8 @@ class SingleWorkoutReceipt(BaseModel):
     strava_single_activity: bool
     data_source: str
     
+    metadata: AttentationMetadata
+    
     @staticmethod
     def get_schema_id() -> str:
         return "0x48d9973eb6863978c104f85dc6864e827fc0f72c4083dd853171e0bf034f8774"
@@ -79,7 +125,11 @@ class SingleWorkoutReceipt(BaseModel):
         return attestation.data["sig"]["message"]["schema"] == SingleWorkoutReceipt.get_schema_id()
     
     @classmethod
-    def from_decoded_data_json_str(cls, decoded_str: str) -> "SingleWorkoutReceipt":
+    def from_attestation(cls, attestation: Attestation) -> "SingleWorkoutReceipt":
+        if not cls.is_single_workout(attestation):
+            raise ValueError("Not a single workout attestation")
+        
+        decoded_str = attestation.decodedDataJson
         decoded_data = parse_decoded_data_json(decoded_str)
         
         return cls(
@@ -96,15 +146,8 @@ class SingleWorkoutReceipt(BaseModel):
             receipt_map=decoded_data["map"],
             strava_single_activity=decoded_data["strava_single_activity"],
             data_source=decoded_data["data_source"],
+            metadata=attestation.to_metadata()
         )
-    
-    @classmethod
-    def from_attestation(cls, attestation: Attestation) -> "SingleWorkoutReceipt":
-        if not cls.is_single_workout(attestation):
-            raise ValueError("Not a single workout attestation")
-        
-        decoded_str = attestation.decodedDataJson
-        return cls.from_decoded_data_json_str(decoded_str)
         
     @classmethod
     def from_uid(cls, uid: str) -> "SingleWorkoutReceipt":
@@ -124,6 +167,8 @@ class WeekToDateReceipt(BaseModel):
     strava_week_range: bool
     data_source: str
     
+    metadata: AttentationMetadata
+    
     @staticmethod
     def get_schema_id() -> str:
         return "0xcd6475d55ff914b51faf41f8f85a6bfe27875fc87eaa7d50762cf6c89050adac"
@@ -131,9 +176,13 @@ class WeekToDateReceipt(BaseModel):
     @staticmethod
     def is_week_to_date(attestation: Attestation) -> bool:
         return attestation.data["sig"]["message"]["schema"] == WeekToDateReceipt.get_schema_id()
-    
+        
     @classmethod
-    def from_decoded_data_json_str(cls, decoded_str: str) -> "WeekToDateReceipt":
+    def from_attestation(cls, attestation: Attestation) -> "WeekToDateReceipt":
+        if not cls.is_week_to_date(attestation):
+            raise ValueError("Not a single workout attestation")
+        
+        decoded_str = attestation.decodedDataJson
         decoded_data = parse_decoded_data_json(decoded_str)
         
         return cls(
@@ -146,17 +195,43 @@ class WeekToDateReceipt(BaseModel):
             range_end=decoded_data["range_end"],
             strava_week_range=decoded_data["strava_week_range"],
             data_source=decoded_data["data_source"],
+            metadata=attestation.to_metadata()
         )
-        
-    @classmethod
-    def from_attestation(cls, attestation: Attestation) -> "WeekToDateReceipt":
-        if not cls.is_week_to_date(attestation):
-            raise ValueError("Not a single workout attestation")
-        
-        decoded_str = attestation.decodedDataJson
-        return cls.from_decoded_data_json_str(decoded_str)
         
     @classmethod
     def from_uid(cls, uid: str) -> "WeekToDateReceipt":
         attestation = Attestation.from_uid(uid)
         return cls.from_attestation(attestation)
+
+class WeekInterval(BaseModel):
+    
+    start_timestamp: int
+    end_timestamp: int
+    
+    @property
+    def formatted_interval(self) -> str:
+        start_date = datetime.fromtimestamp(self.start_timestamp, timezone.utc)
+        end_date = datetime.fromtimestamp(self.end_timestamp, timezone.utc)
+        # Format the dates to "3 June - 9 June"
+        formatted_start = start_date.strftime("%-d %B %Y")
+        formatted_end = end_date.strftime("%-d %B %Y")
+        return f"{formatted_start} - {formatted_end} (UTC)"
+    
+    @classmethod
+    def get_current_interval(cls) -> "WeekInterval":
+        now = datetime.now(timezone.utc)
+        # Find the start of the week (Monday 00:00 UTC)
+        start_of_week = now - timedelta(days=now.weekday())
+        start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Find the end of the week (Sunday 23:59 UTC)
+        end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59, seconds=59)
+        
+        start_timestamp = int(start_of_week.timestamp())
+        end_timestamp = int(end_of_week.timestamp())
+        
+        return cls(
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp
+        )
+    

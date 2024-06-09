@@ -37,6 +37,12 @@ class ReceiptsXYZGraphQLAPI:
                 id
                 data
                 decodedDataJson
+                revoked
+                ipfsHash
+                schema {{
+                    id
+                    txid
+                }}
             }}
         }}
         """
@@ -93,13 +99,118 @@ class ReceiptsXYZGraphQLAPI:
                 id
                 data
                 decodedDataJson
+                revoked
+                ipfsHash
+                schema {{
+                    id
+                    txid
+                }}
             }}
         }}
         """
         
         data_path = ['data', 'attestations']
         results = self.fetch_all_data(base_query, data_path, address=address)
-        return {'attestations': results}
+        return results
+    
+    def query_workouts_with_interval(
+        self,
+        start_timestamp: int,
+        end_timestamp: int
+    ) -> dict:
+        assert start_timestamp < end_timestamp
+        base_query = """
+        query Attestations {{
+            attestations(
+                where: {{
+                    time: {{
+                        lte: {end_timestamp},
+                        gte: {start_timestamp}
+                    }},
+                    schema: {{
+                        is: {{
+                            id: {{
+                                equals: "0x48d9973eb6863978c104f85dc6864e827fc0f72c4083dd853171e0bf034f8774"
+                            }}
+                        }}
+                    }}
+                }},
+                take: {batch_size},
+                skip: {skip}
+            ) {{
+                id
+                data
+                decodedDataJson
+                revoked
+                ipfsHash
+                schema {{
+                    id
+                    txid
+                }}
+            }}
+        }}
+        """
+        
+        data_path = ['data', 'attestations']
+        results = self.fetch_all_data(
+            base_query, 
+            data_path, 
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp
+        )
+        return results
+    
+    def query_user_workouts_with_inteval(
+        self, 
+        address: str,
+        start_timestamp: int,
+        end_timestamp: int
+    ) -> dict:
+        assert start_timestamp < end_timestamp
+        base_query = """
+        query Attestations {{
+            attestations(
+                where: {{
+                    recipient: {{
+                        equals: "{address}"
+                    }},
+                    time: {{
+                        lte: {end_timestamp},
+                        gte: {start_timestamp}
+                    }},
+                    schema: {{
+                        is: {{
+                            id: {{
+                                equals: "0x48d9973eb6863978c104f85dc6864e827fc0f72c4083dd853171e0bf034f8774"
+                            }}
+                        }}
+                    }}
+                }},
+                take: {batch_size},
+                skip: {skip}
+            ) {{
+                id
+                data
+                decodedDataJson
+                revoked
+                ipfsHash
+                schema {{
+                    id
+                    txid
+                }}
+            }}
+        }}
+        """
+        
+        data_path = ['data', 'attestations']
+        results = self.fetch_all_data(
+            base_query, 
+            data_path, 
+            address=address,
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp
+        )
+        return results
     
     def query_receipts_users(self) -> List[str]:
         base_query = """
