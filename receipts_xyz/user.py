@@ -28,7 +28,7 @@ def get_user_workouts(
             end_timestamp=end_timestamp
         )
     
-    logging.info(f"Found {len(output['attestations'])} attestations for address: {address}")
+    logging.info(f"Found {len(output)} attestations for address: {address}")
     
     return [
         SingleWorkoutReceipt.from_attestation(

@@ -7,7 +7,25 @@ from pydantic import BaseModel, validator
 
 from .api import ReceiptsXYZGraphQLAPI
 from .exception import ParsingFailException
-from .utils import parse_decoded_data_json
+
+
+def parse_decoded_data_json(data: str) -> dict:
+    """Parses the decoded data JSON string into a dictionary.
+
+    Args:
+        data: The decoded data JSON string.
+
+    Returns:
+        A dictionary with the parsed data.
+    """
+    data = json.loads(data)
+    
+    parsed_dict = {}
+    for item in data:
+        key = item['name']
+        value = item['value']['value']
+        parsed_dict[key] = value
+    return parsed_dict
 
 
 class Attestation(BaseModel):
@@ -115,6 +133,14 @@ class SingleWorkoutReceipt(BaseModel):
     data_source: str
     
     metadata: AttentationMetadata
+    
+    @property
+    def get_hash(self) -> str:
+        """Compute hash for workout deduplication
+        take a hash of (title, sport_type, receipt_type, moving_time, distance, average_speed, elevation_gain, timezone, local_time, utc_time, receipt_map, strava_single_activity, data_source)
+        """
+        
+        
     
     @staticmethod
     def get_schema_id() -> str:

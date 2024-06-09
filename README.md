@@ -13,12 +13,19 @@ This SDK calls a GraphQL for [Ethereum Attestation Service (EAS)](https://docs.a
 
 ## Examples
 
+Get weekly attested workouts
+```python
+from receipts_xyz import get_weekly_attested_workouts
+
+workouts = get_weekly_attested_workouts()
+```
+
 Get workouts from a user
 ```python
-from receipts_xyz.user import get_workouts
+from receipts_xyz import get_user_workouts
 
 address = "chompk.eth" # or 0x...
-workouts = get_workouts(address)
+workouts = get_user_workouts(address)
 ```
 
 Get single workout receipt from UID

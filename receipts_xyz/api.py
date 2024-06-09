@@ -25,6 +25,7 @@ class ReceiptsXYZGraphQLAPI:
         query = f"""
         query Attestations {{
             attestations(
+                orderBy: {{time: desc}},
                 where: {{
                     attester: {{
                         equals: "{self.receiptsxyz_address}"
@@ -81,6 +82,7 @@ class ReceiptsXYZGraphQLAPI:
         base_query = """
         query Attestations {{
             attestations(
+                orderBy: {{time: desc}},
                 where: {{
                     recipient: {{
                         equals: "{address}"
@@ -122,6 +124,7 @@ class ReceiptsXYZGraphQLAPI:
         base_query = """
         query Attestations {{
             attestations(
+                orderBy: {{time: desc}},
                 where: {{
                     time: {{
                         lte: {end_timestamp},
@@ -170,6 +173,7 @@ class ReceiptsXYZGraphQLAPI:
         base_query = """
         query Attestations {{
             attestations(
+                orderBy: {{time: desc}},
                 where: {{
                     recipient: {{
                         equals: "{address}"
@@ -216,6 +220,7 @@ class ReceiptsXYZGraphQLAPI:
         base_query = """
         query Users {{
             attestations(
+                orderBy: {{time: desc}},
                 where: {{
                     schema: {{
                         is: {{
@@ -229,13 +234,14 @@ class ReceiptsXYZGraphQLAPI:
                 skip: {skip}
             ) {{
                 recipient
+                time
             }}
         }}
         """
         
         data_path = ['data', 'attestations']
         results = self.fetch_all_data(base_query, data_path)
-        return list(map(lambda x: x["recipient"], results))
+        return results
     
     
 class ReceiptsXYZLeaderboardAPI:
