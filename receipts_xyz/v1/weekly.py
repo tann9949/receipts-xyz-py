@@ -1,9 +1,10 @@
 import logging
 from typing import List
 
-from .api import ReceiptsXYZGraphQLAPI
-from .exception import ParsingFailException
-from .schema import Attestation, SingleWorkoutReceipt, WeekInterval
+from ..api.v1 import ReceiptsXYZV1GraphQLAPI
+from ..exception import ParsingFailException
+from ..schema.base import AttestationV1, WeekInterval
+from ..schema.v1 import SingleWorkoutReceipt
 from .utils import deduplicate_receipts
 
 
@@ -11,7 +12,7 @@ def get_weekly_attested_workouts(deduplicate: bool = True) -> List[SingleWorkout
     weekly_interval = WeekInterval.get_current_interval()
 
     logging.info(f"Fetching attestations between {weekly_interval.formatted_interval}")
-    output = ReceiptsXYZGraphQLAPI().query_workouts_with_interval(
+    output = ReceiptsXYZV1GraphQLAPI().query_workouts_with_interval(
         start_timestamp=weekly_interval.start_timestamp, 
         end_timestamp=weekly_interval.end_timestamp
     )
@@ -19,7 +20,7 @@ def get_weekly_attested_workouts(deduplicate: bool = True) -> List[SingleWorkout
     workouts = list()
     for _a in output:
         try:
-            attestation = Attestation.from_dict(_a)
+            attestation = AttestationV1.from_dict(_a)
             if SingleWorkoutReceipt.is_single_workout(attestation):
                 workouts.append(SingleWorkoutReceipt.from_attestation(attestation))
         except ParsingFailException:

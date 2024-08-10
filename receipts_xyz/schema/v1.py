@@ -1,34 +1,18 @@
 import json
-import logging
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict
+from datetime import datetime
+from typing import Dict, Optional
 
 from pydantic import BaseModel
 
-from .api import ReceiptsXYZGraphQLAPI
-from .exception import ParsingFailException
+from ..api.v1 import ReceiptsXYZV1GraphQLAPI
+from ..exception import ParsingFailException
+from .base import (
+    AttentationMetadata,
+    parse_decoded_data_json
+)
 
 
-def parse_decoded_data_json(data: str) -> dict:
-    """Parses the decoded data JSON string into a dictionary.
-
-    Args:
-        data: The decoded data JSON string.
-
-    Returns:
-        A dictionary with the parsed data.
-    """
-    data = json.loads(data)
-    
-    parsed_dict = {}
-    for item in data:
-        key = item['name']
-        value = item['value']['value']
-        parsed_dict[key] = value
-    return parsed_dict
-
-
-class Attestation(BaseModel):
+class AttestationV1(BaseModel):
     """
     Attestation
         id: String
@@ -50,7 +34,7 @@ class Attestation(BaseModel):
         return f"ipfs://{self.ipfsHash}"
 
     @classmethod
-    def from_dict(cls, attestation_data: dict) -> "Attestation":
+    def from_dict(cls, attestation_data: dict) -> "AttestationV1":
         # Extract the attestation data from the response
         
         # Parse the "data" field from JSON string to dictionary
@@ -67,8 +51,8 @@ class Attestation(BaseModel):
         return attestation
     
     @classmethod
-    def from_uid(cls, uid: str) -> "Attestation":
-        api = ReceiptsXYZGraphQLAPI()
+    def from_uid(cls, uid: str) -> "AttestationV1":
+        api = ReceiptsXYZV1GraphQLAPI()
         
         attestations = api.query_attestation(uid)["data"]["attestations"]
         if len(attestations) == 0:
@@ -89,19 +73,8 @@ class Attestation(BaseModel):
             to_address=self.data["signer"],
             ipfs_hash=self.ipfsHash,
         )
-    
-    
-class AttentationMetadata(BaseModel):
-    uid: str
-    created_at: datetime
-    expiration: int = 0
-    revoked: bool = False
-    from_address: str
-    to_address: str
-    
-    ipfs_hash: str
-    
-    
+
+
 class SingleWorkoutReceipt(BaseModel):
     """Single Workout Receipt
     https://base.easscan.org/schema/view/0x48d9973eb6863978c104f85dc6864e827fc0f72c4083dd853171e0bf034f8774
@@ -145,11 +118,11 @@ class SingleWorkoutReceipt(BaseModel):
         return "0x48d9973eb6863978c104f85dc6864e827fc0f72c4083dd853171e0bf034f8774"
     
     @staticmethod
-    def is_single_workout(attestation: Attestation) -> bool:
+    def is_single_workout(attestation: AttestationV1) -> bool:
         return attestation.data["sig"]["message"]["schema"] == SingleWorkoutReceipt.get_schema_id()
     
     @classmethod
-    def from_attestation(cls, attestation: Attestation) -> "SingleWorkoutReceipt":
+    def from_attestation(cls, attestation: AttestationV1) -> "SingleWorkoutReceipt":
         if not cls.is_single_workout(attestation):
             raise ValueError("Not a single workout attestation")
         
@@ -175,7 +148,7 @@ class SingleWorkoutReceipt(BaseModel):
         
     @classmethod
     def from_uid(cls, uid: str) -> "SingleWorkoutReceipt":
-        attestation = Attestation.from_uid(uid)
+        attestation = AttestationV1.from_uid(uid)
         return cls.from_attestation(attestation)
         
 
@@ -198,11 +171,11 @@ class WeekToDateReceipt(BaseModel):
         return "0xcd6475d55ff914b51faf41f8f85a6bfe27875fc87eaa7d50762cf6c89050adac"
     
     @staticmethod
-    def is_week_to_date(attestation: Attestation) -> bool:
+    def is_week_to_date(attestation: AttestationV1) -> bool:
         return attestation.data["sig"]["message"]["schema"] == WeekToDateReceipt.get_schema_id()
         
     @classmethod
-    def from_attestation(cls, attestation: Attestation) -> "WeekToDateReceipt":
+    def from_attestation(cls, attestation: AttestationV1) -> "WeekToDateReceipt":
         if not cls.is_week_to_date(attestation):
             raise ValueError("Not a single workout attestation")
         
@@ -224,38 +197,5 @@ class WeekToDateReceipt(BaseModel):
         
     @classmethod
     def from_uid(cls, uid: str) -> "WeekToDateReceipt":
-        attestation = Attestation.from_uid(uid)
+        attestation = AttestationV1.from_uid(uid)
         return cls.from_attestation(attestation)
-
-class WeekInterval(BaseModel):
-    
-    start_timestamp: int
-    end_timestamp: int
-    
-    @property
-    def formatted_interval(self) -> str:
-        start_date = datetime.fromtimestamp(self.start_timestamp, timezone.utc)
-        end_date = datetime.fromtimestamp(self.end_timestamp, timezone.utc)
-        # Format the dates to "3 June - 9 June"
-        formatted_start = start_date.strftime("%-d %B %Y")
-        formatted_end = end_date.strftime("%-d %B %Y")
-        return f"{formatted_start} - {formatted_end} (UTC)"
-    
-    @classmethod
-    def get_current_interval(cls) -> "WeekInterval":
-        now = datetime.now(timezone.utc)
-        # Find the start of the week (Monday 00:00 UTC)
-        start_of_week = now - timedelta(days=now.weekday())
-        start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        # Find the end of the week (Sunday 23:59 UTC)
-        end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59, seconds=59)
-        
-        start_timestamp = int(start_of_week.timestamp())
-        end_timestamp = int(end_of_week.timestamp())
-        
-        return cls(
-            start_timestamp=start_timestamp,
-            end_timestamp=end_timestamp
-        )
-    

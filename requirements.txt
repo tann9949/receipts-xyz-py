@@ -8,3 +8,8 @@ jupyterlab
 ipywidgets
 matplotlib
 pandas
+
+# dashboard
+streamlit
+plotly
+pytz

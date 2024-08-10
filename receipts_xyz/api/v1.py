@@ -3,10 +3,10 @@ import logging
 
 from typing import List, Optional
 
-from .const import LeaderBoardFilter
+from ..const import LeaderBoardFilterV1
 
 
-class ReceiptsXYZGraphQLAPI:
+class ReceiptsXYZV1GraphQLAPI:
     
     def __init__(self) -> None:
         self.graphql_url = "https://base.easscan.org/graphql"
@@ -33,9 +33,6 @@ class ReceiptsXYZGraphQLAPI:
                     id: {{
                         equals: "{uid}"
                     }},
-                    attester: {{
-                        equals: "0x77a3b79a2De700AfcfC761fED837a67D7d8fAe1B"
-                    }}
                 }}
             ) {{
                 id
@@ -60,7 +57,11 @@ class ReceiptsXYZGraphQLAPI:
         has_more_data = True
         
         while has_more_data:
-            query = base_query.format(batch_size=batch_size, skip=skip, **kwargs)
+            query = base_query.format(
+                batch_size=batch_size, 
+                skip=skip, 
+                **kwargs
+            )
             logging.info(f"Fetching batch with skip value: {skip}")
             result = self.request_graphql(query)
             
@@ -284,7 +285,7 @@ class ReceiptsXYZLeaderboardAPI:
     def get_weekly_leaderboard(
         self, 
         limit: Optional[int] = None,
-        leaderboard_filter: LeaderBoardFilter = LeaderBoardFilter.RUNNING_DISTANCE,
+        leaderboard_filter: LeaderBoardFilterV1 = LeaderBoardFilterV1.RUNNING_DISTANCE,
         sort_outputs: bool = True
     ) -> dict:
         # params
@@ -306,6 +307,6 @@ class ReceiptsXYZLeaderboardAPI:
         results = response.json()["data"]
         
         if sort_outputs:
-            key = leaderboard_filter if leaderboard_filter != LeaderBoardFilter.TOTAL_ACTIVITIES else "activities"
+            key = leaderboard_filter if leaderboard_filter != LeaderBoardFilterV1.TOTAL_ACTIVITIES else "activities"
             results = sorted(results, key=lambda x: x[key], reverse=True)
         return results
